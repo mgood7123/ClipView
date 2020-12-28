@@ -6,26 +6,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
-    <HorizontalScrollView
+    <smallville7123.example.clipview.ClipView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        >
-        <FrameLayout
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            >
-            <FrameLayout
-                android:layout_width="500dp"
-                android:layout_height="match_parent"
-                android:background="#00FF00"
-                />
-
-            <FrameLayout
-                android:layout_width="500dp"
-                android:layout_height="match_parent"
-                android:background="#FF0000"
-                android:layout_marginLeft="300dp"
-                />
-        </FrameLayout>
-    </HorizontalScrollView>
+        />
 </androidx.constraintlayout.widget.ConstraintLayout>
