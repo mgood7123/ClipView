@@ -9,5 +9,6 @@
     <smallville7123.example.clipview.ClipView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="#FF00FF"
         />
 </androidx.constraintlayout.widget.ConstraintLayout>
