@@ -90,7 +90,7 @@ public class ClipView extends HorizontalScrollView {
                     ((MarginLayoutParams) p).leftMargin = (int) x;
                     content.setLayoutParams(p);
                 } else {
-//                    content.setX(x);
+                    throw new RuntimeException("layout is not an instance of MarginLayoutParams");
                 }
             } else {
                 content.setLayoutParams(
@@ -111,12 +111,22 @@ public class ClipView extends HorizontalScrollView {
         }
 
         public void setWidth(int width) {
-            content.setLayoutParams(
-                    new ViewGroup.MarginLayoutParams(
-                            width,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-            );
+            ViewGroup.LayoutParams p = content.getLayoutParams();
+            if (p != null) {
+                if (p instanceof MarginLayoutParams) {
+                    ((MarginLayoutParams) p).width = width;
+                    content.setLayoutParams(p);
+                } else {
+                    throw new RuntimeException("layout is not an instance of MarginLayoutParams");
+                }
+            } else {
+                content.setLayoutParams(
+                        new MarginLayoutParams(
+                                width,
+                                MATCH_PARENT
+                        )
+                );
+            }
         }
 
         public int getWidth() {
@@ -176,18 +186,24 @@ public class ClipView extends HorizontalScrollView {
                         originalX = clipStart;
                         downRawX = currentRawX;
                         downDX = originalX - downRawX;
-                        break;
+                        return onClipTouchEvent(clip, event);
                     }
                 }
-                if (!clipTouch) scrolling = true;
-                break;
+                scrolling = true;
+                return super.onTouchEvent(event);
+            case MotionEvent.ACTION_MOVE:
+                return clipTouch ? onClipTouchEvent(touchedClip, event) : super.onTouchEvent(event);
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
-                if (clipTouch) clipTouch = false;
-                else scrolling = false;
-                break;
+                if (clipTouch) {
+                    boolean ret = onClipTouchEvent(touchedClip, event);
+                    clipTouch = false;
+                    return ret;
+                }
+                scrolling = false;
+                return super.onTouchEvent(event);
         }
-        return clipTouch ? onClipTouchEvent(touchedClip, event) : super.onTouchEvent(event);
+        return super.onTouchEvent(event);
     }
 
     public boolean onClipTouchEvent(Clip clip, MotionEvent event) {
