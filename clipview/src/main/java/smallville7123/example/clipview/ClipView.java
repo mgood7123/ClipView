@@ -83,8 +83,27 @@ public class ClipView extends HorizontalScrollView {
             content.setBackgroundColor(color);
         }
 
-        public void setX(int x) {
-            content.setX(x);
+        public void setX(float x) {
+            ViewGroup.LayoutParams p = content.getLayoutParams();
+            if (p != null) {
+                if (p instanceof MarginLayoutParams) {
+                    ((MarginLayoutParams) p).leftMargin = (int) x;
+                    content.setLayoutParams(p);
+                } else {
+//                    content.setX(x);
+                }
+            } else {
+                content.setLayoutParams(
+                        new MarginLayoutParams(
+                                MATCH_PARENT,
+                                MATCH_PARENT
+                        ) {
+                            {
+                                leftMargin = (int) x;
+                            }
+                        }
+                );
+            }
         }
 
         public float getX() {
@@ -93,7 +112,7 @@ public class ClipView extends HorizontalScrollView {
 
         public void setWidth(int width) {
             content.setLayoutParams(
-                    new ViewGroup.LayoutParams(
+                    new ViewGroup.MarginLayoutParams(
                             width,
                             ViewGroup.LayoutParams.MATCH_PARENT
                     )
@@ -174,7 +193,11 @@ public class ClipView extends HorizontalScrollView {
     public boolean onClipTouchEvent(Clip clip, MotionEvent event) {
         Log.d(TAG, "onClipTouchEvent() called with: clip = [" + clip + "], event = [" + MotionEvent.actionToString(event.getAction()) + "]");
         if (event.getAction() == MotionEvent.ACTION_MOVE) {
-            clip.animate().x(currentRawX + downDX).setDuration(0).start();
+            if (currentRawX + downDX >= 0) {
+                clip.setX(currentRawX + downDX);
+            } else {
+                clip.setX(0);
+            }
         }
         return true;
     }
