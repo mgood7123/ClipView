@@ -1,7 +1,9 @@
 package smallville7123.example.clipview;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -161,7 +163,6 @@ public class ClipView extends HorizontalScrollView {
     boolean scrolling = false;
     boolean clipTouch = false;
     Clip touchedClip;
-    float originalX;
     float downDX;
     float downRawX;
     float currentRawX;
@@ -169,24 +170,14 @@ public class ClipView extends HorizontalScrollView {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         Log.d(TAG, "onTouchEvent() called with: event = [" + MotionEvent.actionToString(event.getAction()) + "]");
-        currentRawX = event.getRawX();
-        relativeToViewX = event.getX();
-        relativeToViewScrollX = relativeToViewX + getScrollX();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 for (Clip clip : clips) {
-                    float clipStart = clip.getX();
-                    float clipEnd = clipStart + clip.getWidth();
-                    Log.d(TAG, "clipStart = [ " + clipStart + "]");
-                    Log.d(TAG, "clipEnd = [ " + clipEnd + "]");
-                    Log.d(TAG, "relativeToViewScrollX = [ " + relativeToViewScrollX + "]");
-                    if (relativeToViewScrollX >= clipStart && relativeToViewScrollX <= clipEnd) {
+                    boolean ret = onClipTouchEvent(clip, event);
+                    if (ret) {
                         clipTouch = true;
                         touchedClip = clip;
-                        originalX = clipStart;
-                        downRawX = currentRawX;
-                        downDX = originalX - downRawX;
-                        return onClipTouchEvent(clip, event);
+                        return ret;
                     }
                 }
                 scrolling = true;
@@ -206,16 +197,83 @@ public class ClipView extends HorizontalScrollView {
         return super.onTouchEvent(event);
     }
 
+    public float touchZoneWidthLeft = 80.0f;
+    public float touchZoneWidthRight = 80.0f;
+    public float touchZoneWidth;
+
+    Paint highlightPaint;
+    Paint touchZonePaint;
+    @Override
+    public void onDrawForeground(Canvas canvas) {
+        super.onDrawForeground(canvas);
+        int width = getWidth();
+        int height = getHeight();
+//        if (draggable != null) {
+//            if (draggable.isResizing) {
+//                drawHighlight(canvas, width, height, highlightPaint);
+//            }
+//        }
+//        drawTouchZones(canvas, width, height, touchZonePaint);
+    }
+
+    boolean isResizing;
+    boolean isDragging;
+    float clipOriginalStart;
+    float clipOriginalWidth;
+    float clipOriginalEnd;
+    boolean resizingLeft;
+    boolean resizingRight;
+    float widthLeft = 30.0f;
+    float widthRight = 30.0f;
+
     public boolean onClipTouchEvent(Clip clip, MotionEvent event) {
-        Log.d(TAG, "onClipTouchEvent() called with: clip = [" + clip + "], event = [" + MotionEvent.actionToString(event.getAction()) + "]");
-        if (event.getAction() == MotionEvent.ACTION_MOVE) {
-            if (currentRawX + downDX >= 0) {
-                clip.setX(currentRawX + downDX);
-            } else {
-                clip.setX(0);
-            }
+        currentRawX = event.getRawX();
+        relativeToViewX = event.getX() + getScrollX();
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_CANCEL:
+            case MotionEvent.ACTION_UP:
+                return false;
+            case MotionEvent.ACTION_MOVE:
+                if (!isResizing && isDragging) {
+                    if (currentRawX + downDX >= 0) {
+                        clip.setX(currentRawX + downDX);
+                    } else {
+                        clip.setX(0);
+                    }
+                    return true;
+                }
+                return false;
+            case MotionEvent.ACTION_DOWN:
+                isDragging = false;
+                isResizing = false;
+                clipOriginalStart = clip.getX();
+                clipOriginalWidth = clip.getWidth();
+                clipOriginalEnd = clipOriginalStart + clipOriginalWidth;
+                downRawX = currentRawX;
+                resizingLeft = false;
+                resizingRight = false;
+                Log.d(TAG, "relativeToViewX = [ " + relativeToViewX + "]");
+                Log.d(TAG, "clipOriginalStart = [ " + clipOriginalStart + "]");
+                Log.d(TAG, "clipOriginalEnd = [ " + clipOriginalEnd + "]");
+                if (relativeToViewX < widthLeft) {
+//                    resizingLeft = true;
+//                    isResizing = true;
+                } else if ((clip.content.getRight() - relativeToViewX) < widthRight) {
+//                    resizingRight = true;
+//                    isResizing = true;
+                } else if (relativeToViewX >= clipOriginalStart && relativeToViewX <= clipOriginalEnd) {
+                    isDragging = true;
+                }
+                if (isResizing || isDragging) {
+                    Log.d(TAG, "isResizing = [ " + isResizing + "]");
+                    Log.d(TAG, "isDragging = [ " + isDragging + "]");
+                    clip.content.invalidate();
+                    downDX = clipOriginalStart - downRawX;
+                    return true;
+                }
+            default:
+                return false;
         }
-        return true;
     }
 
 
