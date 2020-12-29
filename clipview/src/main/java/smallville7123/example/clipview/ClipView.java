@@ -14,7 +14,6 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 
 import androidx.annotation.ColorInt;
-import androidx.annotation.ColorRes;
 
 import java.util.ArrayList;
 
@@ -62,6 +61,7 @@ public class ClipView extends HorizontalScrollView {
         A.setX(800);
         A.setWidth(1000);
         addClip(A);
+        setPaint();
     }
 
     class Clip {
@@ -156,9 +156,6 @@ public class ClipView extends HorizontalScrollView {
     private static final String TAG = "ClipView";
 
     private float relativeToViewX;
-    private float relativeToViewY;
-    private float relativeToViewScrollX;
-    private float relativeToViewScrollY;
 
     boolean scrolling = false;
     boolean clipTouch = false;
@@ -169,7 +166,6 @@ public class ClipView extends HorizontalScrollView {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        Log.d(TAG, "onTouchEvent() called with: event = [" + MotionEvent.actionToString(event.getAction()) + "]");
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 for (Clip clip : clips) {
@@ -198,22 +194,49 @@ public class ClipView extends HorizontalScrollView {
     }
 
     public float touchZoneWidthLeft = 80.0f;
+    public float touchZoneWidthLeftOffset = 80.0f;
     public float touchZoneWidthRight = 80.0f;
-    public float touchZoneWidth;
+    public float touchZoneWidthRightOffset = 80.0f;
 
     Paint highlightPaint;
     Paint touchZonePaint;
+
+    private void setPaint() {
+        highlightPaint = new Paint();
+        touchZonePaint = new Paint();
+
+        highlightPaint.setARGB(200, 0, 0, 255);
+        touchZonePaint.setARGB(160, 0, 90, 0);
+    }
+
     @Override
     public void onDrawForeground(Canvas canvas) {
         super.onDrawForeground(canvas);
         int width = getWidth();
         int height = getHeight();
-//        if (draggable != null) {
-//            if (draggable.isResizing) {
-//                drawHighlight(canvas, width, height, highlightPaint);
-//            }
-//        }
+        if (isResizing) {
+            drawHighlight(canvas, width, height, highlightPaint);
+        }
 //        drawTouchZones(canvas, width, height, touchZonePaint);
+    }
+
+    void drawHighlight(Canvas canvas, int width, int height, Paint paint) {
+        float clipStart = touchedClip.getX();
+        float clipWidth = touchedClip.getWidth();
+        float clipEnd = clipStart + clipWidth;
+        canvas.drawRect(clipStart, 0, clipEnd, height, paint);
+    }
+
+    void drawTouchZones(Canvas canvas, int width, int height, Paint paint) {
+        for (Clip clip : clips) {
+            float clipStart = clip.getX();
+            float clipWidth = clip.getWidth();
+            float clipEnd = clipStart + clipWidth;
+            // left
+            canvas.drawRect(clipStart - touchZoneWidthLeftOffset, 0, (clipStart + touchZoneWidthLeft) - touchZoneWidthLeftOffset, height, paint);
+            // right
+            canvas.drawRect((clipEnd - touchZoneWidthRight) + touchZoneWidthRightOffset, 0, clipEnd + touchZoneWidthRightOffset, height, paint);
+        }
     }
 
     boolean isResizing;
@@ -223,8 +246,6 @@ public class ClipView extends HorizontalScrollView {
     float clipOriginalEnd;
     boolean resizingLeft;
     boolean resizingRight;
-    float widthLeft = 30.0f;
-    float widthRight = 30.0f;
 
     public boolean onClipTouchEvent(Clip clip, MotionEvent event) {
         currentRawX = event.getRawX();
@@ -232,6 +253,14 @@ public class ClipView extends HorizontalScrollView {
         switch (event.getAction()) {
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
+                if (!isResizing && isDragging) {
+                    isDragging = false;
+                    return true;
+                } else if (isResizing && !isDragging) {
+                    isResizing = false;
+                    invalidate();
+                    return true;
+                }
                 return false;
             case MotionEvent.ACTION_MOVE:
                 if (!isResizing && isDragging) {
@@ -239,6 +268,26 @@ public class ClipView extends HorizontalScrollView {
                         clip.setX(currentRawX + downDX);
                     } else {
                         clip.setX(0);
+                    }
+                    return true;
+                } else if (isResizing && !isDragging) {
+                    ViewGroup.MarginLayoutParams layoutParams = (MarginLayoutParams) clip.content.getLayoutParams();
+                    if (resizingLeft) {
+                        float bounds = currentRawX + downDX;
+                        if (layoutParams.width > 0) {
+                            if (bounds > clipOriginalEnd) bounds = clipOriginalEnd;
+                            float newWidth = clipOriginalWidth - (bounds - clipOriginalStart);
+                            if (newWidth < 1.0f) newWidth = 1.0f;
+                            clip.setX(bounds);
+                            clip.setWidth((int) newWidth);
+                        }
+                    } else if (resizingRight) {
+                        float bounds = currentRawX + downDX;
+                        if (layoutParams.width > 0) {
+                            float newWidth = clipOriginalWidth + (bounds - clipOriginalStart);
+                            if (newWidth < 1.0f) newWidth = 1.0f;
+                            clip.setWidth((int) newWidth);
+                        }
                     }
                     return true;
                 }
@@ -255,25 +304,37 @@ public class ClipView extends HorizontalScrollView {
                 Log.d(TAG, "relativeToViewX = [ " + relativeToViewX + "]");
                 Log.d(TAG, "clipOriginalStart = [ " + clipOriginalStart + "]");
                 Log.d(TAG, "clipOriginalEnd = [ " + clipOriginalEnd + "]");
-                if (relativeToViewX < widthLeft) {
-//                    resizingLeft = true;
-//                    isResizing = true;
-                } else if ((clip.content.getRight() - relativeToViewX) < widthRight) {
-//                    resizingRight = true;
-//                    isResizing = true;
-                } else if (relativeToViewX >= clipOriginalStart && relativeToViewX <= clipOriginalEnd) {
+                float leftStart = clipOriginalStart - touchZoneWidthLeftOffset;
+                float leftEnd = (clipOriginalStart + touchZoneWidthLeft) - touchZoneWidthLeftOffset;
+                Log.d(TAG, "leftStart = [ " + (leftStart) + "]");
+                Log.d(TAG, "leftEnd = [ " + (leftEnd) + "]");
+                float rightStart = (clipOriginalEnd - touchZoneWidthRight) + touchZoneWidthRightOffset;
+                float rightEnd = clipOriginalEnd + touchZoneWidthRightOffset;
+                Log.d(TAG, "rightStart = [ " + (rightStart) + "]");
+                Log.d(TAG, "rightEnd = [ " + (rightEnd) + "]");
+                if (within(relativeToViewX, leftStart, leftEnd)) {
+                    resizingLeft = true;
+                    isResizing = true;
+                } else if (within(relativeToViewX, rightStart, rightEnd)) {
+                    resizingRight = true;
+                    isResizing = true;
+                } else if (within(relativeToViewX, clipOriginalStart, clipOriginalEnd)) {
                     isDragging = true;
                 }
                 if (isResizing || isDragging) {
                     Log.d(TAG, "isResizing = [ " + isResizing + "]");
                     Log.d(TAG, "isDragging = [ " + isDragging + "]");
-                    clip.content.invalidate();
+                    invalidate();
                     downDX = clipOriginalStart - downRawX;
                     return true;
                 }
             default:
                 return false;
         }
+    }
+
+    boolean within(float point, float start, float end) {
+        return point >= start && point <= end;
     }
 
 
